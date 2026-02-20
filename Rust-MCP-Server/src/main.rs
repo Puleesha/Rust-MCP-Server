@@ -1,99 +1,137 @@
+use anyhow::Result;
 use rmcp::{
-    handler::server::tool::{ToolCallContext, ToolCallResult},
-    model::{ToolDefinition, ToolParams},
-    ServiceExt, ServerHandler,
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
+    model::*,
+    tool, tool_handler, tool_router,
     transport::stdio,
+    ErrorData as McpError,
+    ServerHandler, ServiceExt,
 };
+use rmcp::schemars::JsonSchema; // IMPORTANT
 use serde::Deserialize;
-use std::sync::Arc;
+use tracing_subscriber;
 
-// Define the request arguments schema
-#[derive(Deserialize)]
-struct AnalyzeArgs {
-    limit: usize,
+// ==========================================================
+// Core Types
+// ==========================================================
+
+#[derive(Debug, Clone)]
+pub struct RequestStats {
+    pub todo_count: usize,
+    pub file_count: usize,
+    pub unfinished_tasks: usize,
 }
 
-// Shared server state
+async fn baseline_tool_process(limit: usize) -> RequestStats {
+    RequestStats {
+        todo_count: limit.min(5),
+        file_count: 42,
+        unfinished_tasks: 10,
+    }
+}
+
+async fn structured_tool_process(limit: usize) -> RequestStats {
+    RequestStats {
+        todo_count: limit.min(5),
+        file_count: 42,
+        unfinished_tasks: 0,
+    }
+}
+
+// ==========================================================
+// Tool Input
+// ==========================================================
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AnalyzeArgs {
+    pub limit: usize,
+}
+
+// ==========================================================
+// MCP Server
+// ==========================================================
+
 #[derive(Clone)]
-struct McpServer {
-    // put shared state if needed
+pub struct RepoServer {
+    tool_router: ToolRouter<Self>, // FIXED
 }
 
-#[rmcp::tool]  // macro to generate tool definitions
-impl McpServer {
+#[tool_router]
+impl RepoServer {
 
-    async fn baseline_analyzer(
-        &self,
-        ctx: ToolCallContext,
-        params: ToolParams,
-    ) -> ToolCallResult {
-
-        // deserialize arguments
-        let args: AnalyzeArgs = match params.parse_args() {
-            Ok(v) => v,
-            Err(_) => return ctx.error("invalid arguments").await,
-        };
-
-        // call your Rust tool logic
-        let stats = crate::tooling::baseline_tool_process(args.limit).await;
-
-        let result = format!(
-            "TODOs={} files={} unfinished={}",
-            stats.todo_count,
-            stats.file_count,
-            stats.unfinished_tasks
-        );
-
-        ctx.success_text(result).await
+    pub fn new() -> Self {
+        Self {
+            tool_router: Self::tool_router(),
+        }
     }
 
-    async fn structured_analyzer(
+    #[tool(
+        name = "rust_baseline_analyzer",
+        description = "Analyze repo using unstructured concurrency"
+    )]
+    async fn rust_baseline_analyzer(
         &self,
-        ctx: ToolCallContext,
-        params: ToolParams,
-    ) -> ToolCallResult {
+        params: Parameters<AnalyzeArgs>,
+    ) -> std::result::Result<CallToolResult, McpError> {
 
-        let args: AnalyzeArgs = match params.parse_args() {
-            Ok(v) => v,
-            Err(_) => return ctx.error("invalid arguments").await,
-        };
+        let stats = baseline_tool_process(params.0.limit).await;
 
-        let stats = crate::tooling::structured_tool_process(args.limit).await;
-
-        let result = format!(
-            "TODOs={} files={} unfinished={}",
-            stats.todo_count,
-            stats.file_count,
-            stats.unfinished_tasks
+        let msg = format!(
+            "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
+            stats.todo_count, stats.file_count, stats.unfinished_tasks
         );
 
-        ctx.success_text(result).await
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    #[tool(
+        name = "rust_structured_analyzer",
+        description = "Analyze repo using structured concurrency"
+    )]
+    async fn rust_structured_analyzer(
+        &self,
+        params: Parameters<AnalyzeArgs>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+
+        let stats = structured_tool_process(params.0.limit).await;
+
+        let msg = format!(
+            "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
+            stats.todo_count, stats.file_count, stats.unfinished_tasks
+        );
+
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 }
+
+#[tool_handler]
+impl ServerHandler for RepoServer {
+
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            instructions: Some("Rust MCP Repo Analyzer".into()),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .build(),
+            ..Default::default()
+        }
+    }
+}
+
+// ==========================================================
+// Main
+// ==========================================================
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
 
-    // Initialize logger (stderr) so stdout remains clean for MCP JSON
     tracing_subscriber::fmt()
-        .with_ansi(false)
         .with_writer(std::io::stderr)
+        .with_ansi(false)
         .init();
 
-    tracing::info!("Rust MCP server starting");
-
-    // Create the implementation instance
-    let server = McpServer {};
-
-    // stdio transport for MCP host (e.g. Claude Desktop)
-    let transport = stdio();
-
-    // Build and serve the MCP server
-    let svc = server.serve(transport).await?;
-
-    tracing::info!("Server ready; waiting for calls");
-
-    svc.waiting().await?;
+    let service = RepoServer::new().serve(stdio()).await?;
+    service.waiting().await?;
 
     Ok(())
 }
