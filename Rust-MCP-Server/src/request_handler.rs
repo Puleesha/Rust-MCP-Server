@@ -7,17 +7,11 @@ use rmcp::{
 };
 use rmcp::schemars::JsonSchema; // IMPORTANT
 use serde::Deserialize;
+use crate::request_stats::RequestStats;
 
 // ==========================================================
 // Core Types
 // ==========================================================
-
-#[derive(Debug, Clone)]
-pub struct RequestStats {
-    pub todo_count: usize,
-    pub file_count: usize,
-    pub unfinished_tasks: usize,
-}
 
 async fn baseline_tool_process(limit: usize) -> RequestStats {
     RequestStats {
@@ -49,12 +43,12 @@ pub struct AnalyzeArgs {
 // ==========================================================
 
 #[derive(Clone)]
-pub struct Handler {
+pub struct RequestHandler {
     tool_router: ToolRouter<Self>, // FIXED
 }
 
 #[tool_router]
-impl Handler {
+impl RequestHandler {
 
     pub fn new() -> Self {
         Self {
@@ -102,7 +96,7 @@ impl Handler {
 }
 
 #[tool_handler]
-impl ServerHandler for Handler {
+impl ServerHandler for RequestHandler {
 
     fn get_info(&self) -> ServerInfo {
         ServerInfo {

@@ -1,9 +1,11 @@
 mod request_handler;
+mod request_stats;
 
-use request_handler::Handler;
+use request_handler::RequestHandler;
 use anyhow::Result;
-use rmcp::{ transport::stdio, ServiceExt};
-use tokio::io::{stdin, stdout};
+use rmcp::{transport::stdio, ServiceExt};
+
+// use tokio::io::{stdin, stdout};
 
 // ==========================================================
 // Main
@@ -14,12 +16,12 @@ async fn main() -> Result<()> {
 
     // let transport = (stdin(), stdout());    // Create transport 
 
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_ansi(false)
-        .init();
+    // tracing_subscriber::fmt()
+    //     .with_writer(std::io::stderr)
+    //     .with_ansi(false)
+    //     .init();
 
-    let service = Handler::new().serve(stdio()).await?;
+    let service = RequestHandler::new().serve(stdio()).await?;
     service.waiting().await?;
 
     Ok(())
