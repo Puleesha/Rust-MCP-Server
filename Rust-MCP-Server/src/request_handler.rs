@@ -10,7 +10,7 @@ use serde::Deserialize;
 use crate::request_stats::RequestStats;
 
 // ==========================================================
-// Core Types
+// Core research architectures
 // ==========================================================
 
 async fn baseline_tool_process(limit: usize) -> RequestStats {
@@ -30,7 +30,7 @@ async fn structured_tool_process(limit: usize) -> RequestStats {
 }
 
 // ==========================================================
-// Tool Input
+// Tool input schema
 // ==========================================================
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -39,7 +39,7 @@ pub struct AnalyzeArgs {
 }
 
 // ==========================================================
-// MCP Server
+// MCP server and tool definitions
 // ==========================================================
 
 #[derive(Clone)]
@@ -49,21 +49,15 @@ pub struct RequestHandler {
 
 #[tool_router]
 impl RequestHandler {
-
+    
     pub fn new() -> Self {
         Self {
             tool_router: Self::tool_router(),
         }
     }
 
-    #[tool(
-        name = "rust_baseline_analyzer",
-        description = "Analyze repo using unstructured concurrency"
-    )]
-    async fn rust_baseline_analyzer(
-        &self,
-        params: Parameters<AnalyzeArgs>,
-    ) -> std::result::Result<CallToolResult, McpError> {
+    #[tool(name = "rust_baseline_analyzer", description = "Analyze repo using unstructured concurrency")]
+    async fn rust_baseline_analyzer(&self, params: Parameters<AnalyzeArgs>) -> std::result::Result<CallToolResult, McpError> {
 
         let stats = baseline_tool_process(params.0.limit).await;
 
@@ -75,14 +69,8 @@ impl RequestHandler {
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
-    #[tool(
-        name = "rust_structured_analyzer",
-        description = "Analyze repo using structured concurrency"
-    )]
-    async fn rust_structured_analyzer(
-        &self,
-        params: Parameters<AnalyzeArgs>,
-    ) -> std::result::Result<CallToolResult, McpError> {
+    #[tool(name = "rust_structured_analyzer", description = "Analyze repo using structured concurrency")]
+    async fn rust_structured_analyzer(&self, params: Parameters<AnalyzeArgs>) -> std::result::Result<CallToolResult, McpError> {
 
         let stats = structured_tool_process(params.0.limit).await;
 
