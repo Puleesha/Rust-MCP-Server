@@ -8,26 +8,8 @@ use rmcp::{
 use rmcp::schemars::JsonSchema; // IMPORTANT
 use serde::Deserialize;
 use crate::request_stats::RequestStats;
-
-// ==========================================================
-// Core research architectures
-// ==========================================================
-
-async fn baseline_tool_process(limit: usize) -> RequestStats {
-    RequestStats {
-        todo_count: limit.min(5),
-        file_count: 42,
-        unfinished_tasks: 10,
-    }
-}
-
-async fn structured_tool_process(limit: usize) -> RequestStats {
-    RequestStats {
-        todo_count: limit.min(5),
-        file_count: 42,
-        unfinished_tasks: 0,
-    }
-}
+use crate::tool_service::baseline_tool_process;
+use crate::tool_service::structured_tool_process;
 
 // ==========================================================
 // Tool input schema
@@ -49,10 +31,10 @@ pub struct RequestHandler {
 
 #[tool_router]
 impl RequestHandler {
-    
+
     pub fn new() -> Self {
         Self {
-            tool_router: Self::tool_router(),
+            // tool_router: Self::tool_router(),
         }
     }
 

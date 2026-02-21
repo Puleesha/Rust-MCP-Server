@@ -1,5 +1,7 @@
 mod request_handler;
 mod request_stats;
+mod tool_service;
+mod repo_analyser;
 
 use request_handler::RequestHandler;
 use anyhow::Result;

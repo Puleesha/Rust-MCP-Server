@@ -5,6 +5,8 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering}
 };
 use std::path::PathBuf;
+use crate::repo_analyser::RepoAnalyser;
+use crate::request_stats::RequestStats;
 
 pub async fn baseline_tool_process(limit: usize) -> RequestStats {
 
@@ -16,7 +18,8 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
     let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
     let todo_count = Arc::new(AtomicUsize::new(0));
 
-    let deadline = Instant::now() + REQUEST_DEADLINE;
+    let deadline = Instant::now();
+    //  + REQUEST_DEADLINE;
 
     let mut handles = Vec::with_capacity(file_paths.len());
 
@@ -24,26 +27,26 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
     // Spawn tasks (unstructured)
     //------------------------------------------------
 
-    for path in file_paths {
+    // for path in file_paths {
 
-        let repo = repo_analyser.clone();
-        let active = active_tasks.clone();
-        let todos = todo_count.clone();
+    //     let repo = repo_analyser.clone();
+    //     let active = active_tasks.clone();
+    //     let todos = todo_count.clone();
 
-        let handle = tokio::spawn(async move {
+    //     let handle = tokio::spawn(async move {
 
-            if todos.load(Ordering::Relaxed) >= limit {
-                active.fetch_sub(1, Ordering::Relaxed);
-                return;
-            }
+    //         if todos.load(Ordering::Relaxed) >= limit {
+    //             active.fetch_sub(1, Ordering::Relaxed);
+    //             return;
+    //         }
 
-            repo.analyze_file(path, limit, todos.clone()).await;
+    //         repo.analyze_file(path, limit, todos.clone()).await;
 
-            active.fetch_sub(1, Ordering::Relaxed);
-        });
+    //         active.fetch_sub(1, Ordering::Relaxed);
+    //     });
 
-        handles.push(handle);
-    }
+    //     handles.push(handle);
+    // }
 
     //------------------------------------------------
     // Wait until quota or deadline
@@ -88,7 +91,9 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
     let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
     let todo_count = Arc::new(AtomicUsize::new(0));
 
-    let deadline = Instant::now() + REQUEST_DEADLINE;
+    let deadline = Instant::now();
+    //  + REQUEST_DEADLINE;
+    // TODO: Add deadline for this and the above method
 
     let mut set = JoinSet::new();
 
@@ -96,24 +101,24 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
     // Structured spawn
     //------------------------------------------------
 
-    for path in file_paths {
+    // for path in file_paths {
 
-        let repo = repo_analyser.clone();
-        let active = active_tasks.clone();
-        let todos = todo_count.clone();
+    //     let repo = repo_analyser.clone();
+    //     let active = active_tasks.clone();
+    //     let todos = todo_count.clone();
 
-        set.spawn(async move {
+    //     set.spawn(async move {
 
-            if todos.load(Ordering::Relaxed) >= limit {
-                active.fetch_sub(1, Ordering::Relaxed);
-                return;
-            }
+    //         if todos.load(Ordering::Relaxed) >= limit {
+    //             active.fetch_sub(1, Ordering::Relaxed);
+    //             return;
+    //         }
 
-            repo.analyze_file(path, limit, todos.clone()).await;
+    //         repo.analyze_file(path, limit, todos.clone()).await;
 
-            active.fetch_sub(1, Ordering::Relaxed);
-        });
-    }
+    //         active.fetch_sub(1, Ordering::Relaxed);
+    //     });
+    // }
 
     //------------------------------------------------
     // Structured join loop
