@@ -41,7 +41,7 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
                 return;
             }
 
-            RepoAnalyser::analyze_file(path, limit, todos.clone()).await;
+            repo.analyze_file(path, limit, todos.clone()).await;
 
             active.fetch_sub(1, Ordering::Relaxed);
         });
@@ -79,12 +79,6 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
         file_count: repo_analyser.get_file_count(),
         unfinished_tasks,
     }
-
-    // RequestStats {
-    //     todo_count: 10,
-    //     file_count: 10,
-    //     unfinished_tasks: 10,
-    // }
 }
 
 pub async fn structured_tool_process(limit: usize) -> RequestStats {
@@ -118,7 +112,7 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
                 return;
             }
 
-            RepoAnalyser::analyze_file(path, limit, todos.clone()).await;
+            repo.analyze_file(path, limit, todos.clone()).await;
 
             active.fetch_sub(1, Ordering::Relaxed);
         });
@@ -168,10 +162,4 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
         file_count: repo_analyser.get_file_count(),
         unfinished_tasks,
     }
-
-    // RequestStats {
-    //     todo_count: 10,
-    //     file_count: 10,
-    //     unfinished_tasks: 10,
-    // }
 }
