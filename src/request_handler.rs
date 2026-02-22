@@ -8,7 +8,6 @@ use rmcp::{
 use rmcp::schemars::JsonSchema; // IMPORTANT
 use serde::Deserialize;
 use std::result::Result;
-// use crate::request_stats::RequestStats;
 use crate::tool_service::baseline_tool_process;
 use crate::tool_service::structured_tool_process;
 
