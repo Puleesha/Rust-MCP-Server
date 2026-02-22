@@ -43,12 +43,12 @@ impl RequestHandler {
 
         let stats = baseline_tool_process(params.0.limit).await;
 
-        // let msg = format!(
-        //     "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
-        //     stats.todo_count, stats.file_count, stats.unfinished_tasks
-        // );
+        let msg = format!(
+            "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
+            stats.todo_count, stats.file_count, stats.unfinished_tasks
+        );
 
-        let msg: &str =  "TODOs found = 5. Scanned 10 files. Unfinished tasks = 12";
+        // let msg: &str =  "TODOs found = 5. Scanned 10 files. Unfinished tasks = 12";
 
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
@@ -58,12 +58,12 @@ impl RequestHandler {
 
         let stats = structured_tool_process(params.0.limit).await;
 
-        // let msg = format!(
-        //     "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
-        //     stats.todo_count, stats.file_count, stats.unfinished_tasks
-        // );
+        let msg = format!(
+            "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
+            stats.todo_count, stats.file_count, stats.unfinished_tasks
+        );
 
-        let msg: &str =  "TODOs found = 8. Scanned 15 files. Unfinished tasks = 2";
+        // let msg: &str =  "TODOs found = 8. Scanned 15 files. Unfinished tasks = 2";
 
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
