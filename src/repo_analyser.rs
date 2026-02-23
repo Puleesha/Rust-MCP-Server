@@ -26,10 +26,7 @@ impl RepoAnalyser {
         let mut result = Vec::new();
         let extension = extension.to_lowercase();
 
-        for entry in WalkDir::new(root_dir)
-            .into_iter()
-            .filter_map(Result::ok)
-        {
+        for entry in WalkDir::new(root_dir).into_iter().filter_map(Result::ok) {
             let path = entry.path();
 
             if path.is_file() && Self::has_allowed_extension(path, &extension) {
