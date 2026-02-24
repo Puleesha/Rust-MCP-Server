@@ -3,14 +3,88 @@ mod request_stats;
 mod tool_service;
 mod repo_analyser;
 
-use request_handler::RequestHandler;
 use anyhow::Result;
 use rmcp::{transport::stdio, ServiceExt};
+use request_handler::RequestHandler;
 // use tool_service::baseline_tool_process;
+
+use metrics::{counter, histogram};
+use metrics_exporter_prometheus::PrometheusBuilder;
+
+use std::env;
+use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<()> {
 
+    // -----------------------------
+    // Parse args
+    // -----------------------------
+    let args: Vec<String> = env::args().collect();
+    let variant: &'static str = match args.get(5).map(|s| s.as_str()) {
+        Some("baseline") => "baseline",
+        Some("structured") => "structured",
+        _ => "unknown",
+    };
+    let port = if variant == "baseline" { 9100 } else { 9101 };
+
+    // -----------------------------
+    // Install Prometheus exporter ONCE
+    // -----------------------------
+    PrometheusBuilder::new()
+        .with_http_listener(([0, 0, 0, 0], port))
+        .install()
+        .expect("failed to install recorder");
+
+    println!("Listening on port {}", port);
+
+    // -----------------------------
+    // BENCHMARK MODE
+    // -----------------------------
+    if args.get(1) == Some(&"--bench".to_string()) {
+
+        let n: usize = args[2].parse().unwrap();
+        let limit: usize = args[4].parse().unwrap();
+
+        let mut handles = Vec::new();
+
+        for _ in 0..n {
+
+            handles.push(tokio::spawn(async move {
+                let start = Instant::now();
+
+                let result = if variant == "baseline" {
+                    tool_service::baseline_tool_process(limit).await
+                } else {
+                    tool_service::structured_tool_process(limit).await
+                };
+
+                counter!("requests_total", 1, "variant" => variant);
+
+                histogram!("todos_completed_per_request", result.todo_count as f64, "variant" => variant);
+
+                histogram!("todos_missed_per_request", (limit - result.todo_count) as f64, "variant" => variant);
+
+                histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
+
+                histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
+            }));
+        }
+
+        for h in handles {
+            h.await.unwrap();
+        }
+
+        println!("Created benchmark with {} iterations", n);
+
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+
+        return Ok(());
+    }
+
+    // -----------------------------
+    // NORMAL MCP SERVER MODE
+    // -----------------------------
     // let test = RequestHandler::new();
 
     // for i in 1..10 {
@@ -37,3 +111,4 @@ async fn main() -> Result<()> {
     // Similar to void return type in Java
     Ok(())
 }
+
