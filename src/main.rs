@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
         Some("structured") => "structured",
         _ => "unknown",
     };
-    let port = if variant == "baseline" { 9100 } else { 9101 };
+    let port = if variant == "baseline" { 9102 } else { 9103 };
 
     // -----------------------------
     // Install Prometheus exporter ONCE
