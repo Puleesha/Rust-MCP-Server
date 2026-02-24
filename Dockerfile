@@ -7,7 +7,7 @@
 # Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
 
 ARG RUST_VERSION=1.91.1
-ARG APP_NAME=Rust-MCP-Server
+ARG APP_NAME=rust-mcp-server
 
 ################################################################################
 # Create a stage for building the application.
@@ -71,4 +71,4 @@ COPY --from=build /bin/server /bin/
 # EXPOSE 9092
 
 # What the container should run when it is started.
-CMD ["/bin/server"]
+ENTRYPOINT ["/bin/server"]
