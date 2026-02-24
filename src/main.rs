@@ -62,12 +62,11 @@ async fn main() -> Result<()> {
                 counter!("requests_total", 1, "variant" => variant);
 
                 histogram!("todos_completed_per_request", result.todo_count as f64, "variant" => variant);
-
                 histogram!("todos_missed_per_request", (limit - result.todo_count) as f64, "variant" => variant);
-
                 histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
-
                 histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
+
+                println!("Todo count = {}, leaks = {}", result.todo_count, result.unfinished_tasks);
             }));
         }
 
