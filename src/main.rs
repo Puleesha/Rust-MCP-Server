@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     // Parse args
     // -----------------------------
     let args: Vec<String> = env::args().collect();
-    let variant: &'static str = match args.get(5).map(|s| s.as_str()) {
+    let variant: &'static str = match args.get(6).map(|s| s.as_str()) {
         Some("baseline") => "baseline",
         Some("structured") => "structured",
         _ => "unknown",
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
     // -----------------------------
     // Install Prometheus exporter ONCE
     // -----------------------------
-    PrometheusBuilder::new()
+    let _handle = PrometheusBuilder::new()
         .with_http_listener(([0, 0, 0, 0], port))
         .install()
         .expect("failed to install recorder");
