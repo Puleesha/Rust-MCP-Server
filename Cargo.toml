@@ -16,3 +16,4 @@ walkdir = "2"
 metrics = "0.21"
 metrics-exporter-prometheus = "0.12"
 once_cell = "1"
+hyper = { version = "0.14", features = ["full"] }

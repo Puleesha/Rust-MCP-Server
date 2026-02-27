@@ -9,10 +9,15 @@ use request_handler::RequestHandler;
 // use tool_service::baseline_tool_process;
 
 use metrics::{counter, histogram};
-use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 
 use std::env;
 use std::time::Instant;
+
+use hyper::{Body, Request, Response, Server};
+use hyper::service::{make_service_fn, service_fn};
+use hyper::header::CONTENT_TYPE;
+use std::convert::Infallible;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,12 +36,12 @@ async fn main() -> Result<()> {
     // -----------------------------
     // Install Prometheus exporter ONCE
     // -----------------------------
-    let _handle = PrometheusBuilder::new()
-        .with_http_listener(([0, 0, 0, 0], port))
-        .install()
+    let handle: PrometheusHandle = PrometheusBuilder::new()
+        .install_recorder()
         .expect("failed to install recorder");
 
     println!("Listening on port {}", port);
+    start_metrics_server(handle.clone(), port);
 
     // -----------------------------
     // BENCHMARK MODE
@@ -109,5 +114,55 @@ async fn main() -> Result<()> {
 
     // Similar to void return type in Java
     Ok(())
+}
+
+// -----------------------------
+// Make metrics response headers work with Prometheus.
+// -----------------------------
+async fn metrics_handler(
+    req: Request<Body>,
+    handle: PrometheusHandle,
+) -> Result<Response<Body>, Infallible> {
+
+    if req.uri().path() != "/metrics" {
+        return Ok(Response::builder()
+            .status(404)
+            .body(Body::from("Not Found"))
+            .unwrap());
+    }
+
+    let body = handle.render();
+
+    Ok(Response::builder()
+        .status(200)
+        .header(
+            CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8"
+        )
+        .body(Body::from(body))
+        .unwrap())
+}
+
+fn start_metrics_server(handle: PrometheusHandle, port: u16) {
+    tokio::spawn(async move {
+        let addr = ([0, 0, 0, 0], port).into();
+
+        let make_svc = make_service_fn(move |_conn| {
+            let h = handle.clone();
+            async move {
+                Ok::<_, Infallible>(service_fn(move |req| {
+                    metrics_handler(req, h.clone())
+                }))
+            }
+        });
+
+        let server = Server::bind(&addr).serve(make_svc);
+
+        println!("Metrics server on http://0.0.0.0:{}/metrics", port);
+
+        if let Err(e) = server.await {
+            eprintln!("metrics server error: {}", e);
+        }
+    });
 }
 
