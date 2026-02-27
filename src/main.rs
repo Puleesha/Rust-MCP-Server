@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
         .install_recorder()
         .expect("failed to install recorder");
 
-    println!("Listening on port {}", port);
+    eprintln!("Listening on port {}", port);    // Print all logs into stderr
     start_metrics_server(handle.clone(), port);
 
     // -----------------------------
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
                 histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
                 histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
 
-                println!("Todo count = {}, leaks = {}", result.todo_count, result.unfinished_tasks);
+                eprintln!("Todo count = {}, leaks = {}", result.todo_count, result.unfinished_tasks);
             }));
         }
 
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
             h.await.unwrap();
         }
 
-        println!("Created benchmark with {} iterations", n);
+        eprintln!("Created benchmark with {} iterations", n);
 
         tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
@@ -158,7 +158,7 @@ fn start_metrics_server(handle: PrometheusHandle, port: u16) {
 
         let server = Server::bind(&addr).serve(make_svc);
 
-        println!("Metrics server on http://0.0.0.0:{}/metrics", port);
+        eprintln!("Metrics server on http://0.0.0.0:{}/metrics", port);
 
         if let Err(e) = server.await {
             eprintln!("metrics server error: {}", e);
