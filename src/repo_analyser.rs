@@ -3,10 +3,13 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
 use walkdir::WalkDir;
+use std::sync::Mutex;
+use std::mem::take;
 
 pub struct RepoAnalyser {
     file_count: Arc<AtomicUsize>,
     todo_count: Arc<AtomicUsize>,
+    todo_tasks: Arc<Mutex<Vec<String>>>
 }
 
 impl RepoAnalyser {
@@ -14,6 +17,7 @@ impl RepoAnalyser {
         Self {
             file_count: Arc::new(AtomicUsize::new(0)),
             todo_count: Arc::new(AtomicUsize::new(0)),
+            todo_tasks: Arc::new(Mutex::new(Vec::new()))
         }
     }
 
@@ -53,12 +57,12 @@ impl RepoAnalyser {
         self.todo_count.load(Ordering::SeqCst)
     }
 
-    pub async fn analyze_file(
-        &self,
-        path: PathBuf,
-        limit: usize,
-        todos: Arc<AtomicUsize>,
-    ) {
+    pub fn get_todo_tasks(&self) -> Vec<String> {
+        let mut guard = self.todo_tasks.lock().unwrap();
+        take(&mut *guard)
+    }
+
+    pub async fn analyze_file(&self, path: PathBuf, limit: usize, todos: Arc<AtomicUsize>) {
         if let Ok(file) = File::open(&path) {
             self.file_count.fetch_add(1, Ordering::SeqCst);
 
@@ -71,6 +75,9 @@ impl RepoAnalyser {
                 }
 
                 if line.contains("TODO") {
+                    let mut guard = self.todo_tasks.lock().unwrap();
+                    guard.push(String::from(line));
+
                     self.todo_count.fetch_add(1, Ordering::SeqCst);
                     todos.fetch_add(1, Ordering::SeqCst);
                 }

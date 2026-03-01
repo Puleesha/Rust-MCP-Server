@@ -77,6 +77,7 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
         todo_count: repo_analyser.get_todo_count(),
         file_count: repo_analyser.get_file_count(),
         unfinished_tasks,
+        todo_tasks: repo_analyser.get_todo_tasks()
     }
 }
 
@@ -157,5 +158,6 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
         todo_count: repo_analyser.get_todo_count(),
         file_count: repo_analyser.get_file_count(),
         unfinished_tasks,
+        todo_tasks: repo_analyser.get_todo_tasks()
     }
 }
