@@ -12,7 +12,8 @@ use metrics::{counter, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 
 use std::env;
-use std::time::Instant;
+use std::time::{Instant, Duration};
+use std::thread;
 
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
@@ -26,7 +27,7 @@ async fn main() -> Result<()> {
     // Parse args
     // -----------------------------
     let args: Vec<String> = env::args().collect();
-    let variant: &'static str = match args.get(6).map(|s| s.as_str()) {
+    let variant: &'static str = match args.get(4).map(|s| s.as_str()) {
         Some("baseline") => "baseline",
         Some("structured") => "structured",
         _ => "unknown",
@@ -48,40 +49,46 @@ async fn main() -> Result<()> {
     // -----------------------------
     if args.get(1) == Some(&"--bench".to_string()) {
 
-        let n: usize = args[2].parse().unwrap();
-        let limit: usize = args[4].parse().unwrap();
+        let limit: usize = args[2].parse().unwrap();
 
         let mut handles = Vec::new();
+        eprintln!("Created benchmark with upto {} tasks", limit);
 
-        for _ in 0..n {
+        let start_time = Instant::now();
+        let mut start_index: usize = 0;
+
+        while start_time.elapsed() < Duration::from_millis(100_000) {
+
+            let current_limit: usize = if start_index == limit {1} else {start_index + 1};
+            start_index = current_limit;
 
             handles.push(tokio::spawn(async move {
                 let start = Instant::now();
 
                 let result = if variant == "baseline" {
-                    tool_service::baseline_tool_process(limit).await
+                    tool_service::baseline_tool_process(current_limit).await
                 } else {
-                    tool_service::structured_tool_process(limit).await
+                    tool_service::structured_tool_process(current_limit).await
                 };
 
                 counter!("requests_total", 1, "variant" => variant);
 
                 histogram!("todos_completed_per_request", result.todo_count as f64, "variant" => variant);
-                histogram!("todos_missed_per_request", (limit - result.todo_count) as f64, "variant" => variant);
+                histogram!("todos_missed_per_request", (current_limit - result.todo_count) as f64, "variant" => variant);
                 histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
                 histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
 
-                eprintln!("Todo count = {}, leaks = {}", result.todo_count, result.unfinished_tasks);
+                eprintln!("Limit of = {}, leaks = {}, TODOs found {}", current_limit, result.todo_count, result.unfinished_tasks);
             }));
+
+            thread::sleep(Duration::from_millis(100));
         }
 
         for h in handles {
             h.await.unwrap();
         }
 
-        eprintln!("Created benchmark with {} iterations", n);
-
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        // tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
         return Ok(());
     }
