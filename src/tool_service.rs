@@ -73,6 +73,8 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
 
     let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
 
+    eprintln!("Structured tool called with a imit of = {} TODOs", limit);
+
     RequestStats {
         todo_count: repo_analyser.get_todo_count(),
         file_count: repo_analyser.get_file_count(),
@@ -153,6 +155,8 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
     while set.join_next().await.is_some() {}
 
     let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
+
+    eprintln!("Structured tool called with a imit of = {} TODOs", limit);
 
     RequestStats {
         todo_count: repo_analyser.get_todo_count(),

@@ -77,8 +77,6 @@ async fn main() -> Result<()> {
                 histogram!("todos_missed_per_request", (current_limit - result.todo_count) as f64, "variant" => variant);
                 histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
                 histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
-
-                eprintln!("Limit of = {}, leaks = {}, TODOs found {}", current_limit, result.todo_count, result.unfinished_tasks);
             }));
 
             thread::sleep(Duration::from_millis(100));
