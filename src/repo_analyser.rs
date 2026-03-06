@@ -13,6 +13,8 @@ pub struct RepoAnalyser {
 }
 
 impl RepoAnalyser {
+    const RESPONSE_LENGTH_LIMIT: usize = 500;
+
     pub fn new() -> Self {
         Self {
             file_count: Arc::new(AtomicUsize::new(0)),
@@ -74,7 +76,9 @@ impl RepoAnalyser {
                     break;
                 }
 
-                if line.contains("TODO") {
+                if  line.contains("TODO") && 
+                    (self.get_response_length().await + line.len() < Self::RESPONSE_LENGTH_LIMIT) 
+                {
                     let mut guard = self.todo_tasks.lock().unwrap();
                     guard.push(String::from(line));
 
@@ -83,5 +87,12 @@ impl RepoAnalyser {
                 }
             }
         }
+    }
+
+    async fn get_response_length(&self) -> usize {
+        let guard = self.todo_tasks.lock().unwrap();
+        let response_length: usize = guard.iter().map(|s| s.len()).sum();
+
+        response_length
     }
 }
