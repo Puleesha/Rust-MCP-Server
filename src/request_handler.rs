@@ -44,8 +44,8 @@ impl RequestHandler {
         let stats = baseline_tool_process(params.0.limit).await;
 
         let msg = format!(
-            "TODOs found = {}. Scanned {} files. Unfinished tasks = {}. Results are = {}",
-            stats.todo_count, stats.file_count, stats.unfinished_tasks, stats.todo_tasks.join(",")
+            "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
+            stats.todo_tasks.join(","), stats.file_count, stats.unfinished_tasks
         );
 
         Ok(CallToolResult::success(vec![Content::text(msg)]))
@@ -58,7 +58,7 @@ impl RequestHandler {
 
         let msg = format!(
             "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
-            stats.todo_count, stats.file_count, stats.unfinished_tasks
+            stats.todo_tasks.join(","), stats.file_count, stats.unfinished_tasks
         );
 
         Ok(CallToolResult::success(vec![Content::text(msg)]))
