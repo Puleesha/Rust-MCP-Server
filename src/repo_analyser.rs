@@ -23,32 +23,24 @@ impl RepoAnalyser {
         }
     }
 
-    pub fn analyze_repository(path: &str, types: &str) -> Vec<PathBuf> {
+    pub fn analyze_repository(path: &str) -> Vec<PathBuf> {
         let root = Path::new(path);
-        Self::discover_files(root, types)
+        Self::discover_files(root)
     }
 
-    fn discover_files(root_dir: &Path, extension: &str) -> Vec<PathBuf> {
+    fn discover_files(root_dir: &Path) -> Vec<PathBuf> {
         let mut result = Vec::new();
-        let extension = extension.to_lowercase();
 
         for entry in WalkDir::new(root_dir).into_iter().filter_map(Result::ok) {
             let path = entry.path();
 
-            if path.is_file() && Self::has_allowed_extension(path, &extension) {
+            if path.is_file() {
                 result.push(path.to_path_buf());
             }
         }
 
-        result.sort(); // same as Java's .sorted()
+        result.sort(); // like Java's .sorted() to return the same set of files for every function call
         result
-    }
-
-    fn has_allowed_extension(path: &Path, extension: &str) -> bool {
-        match path.extension() {
-            Some(ext) => ext.to_string_lossy().to_lowercase() == extension,
-            None => false,
-        }
     }
 
     pub fn get_file_count(&self) -> usize {

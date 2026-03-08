@@ -14,7 +14,7 @@ pub async fn baseline_tool_process(limit: usize) -> RequestStats {
 
     let repo_analyser = Arc::new(RepoAnalyser::new());
 
-    let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/Java/lang3", "java");
+    let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository");
 
     let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
     let todo_count = Arc::new(AtomicUsize::new(0));
@@ -87,7 +87,7 @@ pub async fn structured_tool_process(limit: usize) -> RequestStats {
 
     let repo_analyser = Arc::new(RepoAnalyser::new());
 
-    let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/Java/lang3", "java");
+    let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/");
 
     let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
     let todo_count = Arc::new(AtomicUsize::new(0));
