@@ -8,8 +8,7 @@ use rmcp::{
 use rmcp::schemars::JsonSchema;
 use serde::Deserialize;
 use std::result::Result;
-use crate::tool_service::baseline_tool_process;
-use crate::tool_service::structured_tool_process;
+use crate::tool_service::ToolService;
 
 // ==========================================================
 // Tool input schema
@@ -41,7 +40,8 @@ impl RequestHandler {
     #[tool(name = "rust_baseline_analyzer", description = "Analyze repo using unstructured concurrency")]
     async fn rust_baseline_analyzer(&self, params: Parameters<ToolSchema>) -> Result<CallToolResult, McpError> {
 
-        let stats = baseline_tool_process(params.0.limit).await;
+        let service: ToolService = ToolService::new();
+        let stats = service.baseline_tool_process(params.0.limit).await;
 
         let msg = format!(
             "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
@@ -54,7 +54,8 @@ impl RequestHandler {
     #[tool(name = "rust_structured_analyzer", description = "Analyze repo using structured concurrency")]
     async fn rust_structured_analyzer(&self, params: Parameters<ToolSchema>) -> Result<CallToolResult, McpError> {
 
-        let stats = structured_tool_process(params.0.limit).await;
+        let service: ToolService = ToolService::new();
+        let stats = service.structured_tool_process(params.0.limit).await;
 
         let msg = format!(
             "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",

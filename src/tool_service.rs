@@ -8,160 +8,167 @@ use std::path::PathBuf;
 use crate::repo_analyser::RepoAnalyser;
 use crate::request_stats::RequestStats;
 
-const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
+pub struct ToolService;
 
-pub async fn baseline_tool_process(limit: usize) -> RequestStats {
+impl ToolService {
 
-    let repo_analyser = Arc::new(RepoAnalyser::new());
+    const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
 
-    let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository");
+    pub fn new() -> Self {Self {}}
+    
+    pub async fn baseline_tool_process(&self, limit: usize) -> RequestStats {
 
-    let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
-    let todo_count = Arc::new(AtomicUsize::new(0));
+        let repo_analyser = Arc::new(RepoAnalyser::new());
 
-    let deadline: Instant = Instant::now() + REQUEST_DEADLINE;
+        let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository");
 
-    let mut handles = Vec::with_capacity(file_paths.len());
+        let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
+        let todo_count = Arc::new(AtomicUsize::new(0));
 
-    //------------------------------------------------
-    // Spawn tasks (unstructured)
-    //------------------------------------------------
+        let deadline: Instant = Instant::now() + Self::REQUEST_DEADLINE;
 
-    for path in file_paths {
+        let mut handles = Vec::with_capacity(file_paths.len());
 
-        let repo = repo_analyser.clone();
-        let active = active_tasks.clone();
-        let todos = todo_count.clone();
+        //------------------------------------------------
+        // Spawn tasks (unstructured)
+        //------------------------------------------------
 
-        let handle = tokio::spawn(async move {
+        for path in file_paths {
 
-            if todos.load(Ordering::Relaxed) >= limit {
+            let repo = repo_analyser.clone();
+            let active = active_tasks.clone();
+            let todos = todo_count.clone();
+
+            let handle = tokio::spawn(async move {
+
+                if todos.load(Ordering::Relaxed) >= limit {
+                    active.fetch_sub(1, Ordering::Relaxed);
+                    return;
+                }
+
+                repo.analyze_file(path, limit, todos.clone()).await;
+
                 active.fetch_sub(1, Ordering::Relaxed);
-                return;
-            }
+            });
 
-            repo.analyze_file(path, limit, todos.clone()).await;
-
-            active.fetch_sub(1, Ordering::Relaxed);
-        });
-
-        handles.push(handle);
-    }
-
-    //------------------------------------------------
-    // Wait until quota or deadline
-    //------------------------------------------------
-
-    while Instant::now() < deadline {
-
-        if todo_count.load(Ordering::Relaxed) >= limit {
-            break;
+            handles.push(handle);
         }
 
-        tokio::task::yield_now().await;
-    }
+        //------------------------------------------------
+        // Wait until quota or deadline
+        //------------------------------------------------
 
-    // //------------------------------------------------
-    // // Best effort cancellation
-    // //------------------------------------------------
+        while Instant::now() < deadline {
 
-    for handle in &handles {
-        handle.abort();
-    }
-
-    // NOTE: We DO NOT await them properly (unstructured semantics)
-
-    let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
-
-    eprintln!("Structured tool called with a imit of = {} TODOs", limit);
-
-    RequestStats {
-        todo_count: repo_analyser.get_todo_count(),
-        file_count: repo_analyser.get_file_count(),
-        unfinished_tasks,
-        todo_tasks: repo_analyser.get_todo_tasks()
-    }
-}
-
-pub async fn structured_tool_process(limit: usize) -> RequestStats {
-
-    let repo_analyser = Arc::new(RepoAnalyser::new());
-
-    let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/");
-
-    let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
-    let todo_count = Arc::new(AtomicUsize::new(0));
-
-    let deadline = Instant::now() + REQUEST_DEADLINE;
-
-    let mut set = JoinSet::new();
-
-    //------------------------------------------------
-    // Structured spawn
-    //------------------------------------------------
-
-    for path in file_paths {
-
-        let repo = repo_analyser.clone();
-        let active = active_tasks.clone();
-        let todos = todo_count.clone();
-
-        set.spawn(async move {
-
-            if todos.load(Ordering::Relaxed) >= limit {
-                active.fetch_sub(1, Ordering::Relaxed);
-                return;
-            }
-
-            repo.analyze_file(path, limit, todos.clone()).await;
-
-            active.fetch_sub(1, Ordering::Relaxed);
-        });
-    }
-
-    //------------------------------------------------
-    // Structured join loop
-    //------------------------------------------------
-
-    let mut deadline_sleep = Box::pin(sleep_until(deadline));
-
-    loop {
-        tokio::select! {
-
-            _ = &mut deadline_sleep => {
-                set.abort_all();
+            if todo_count.load(Ordering::Relaxed) >= limit {
                 break;
             }
 
-            Some(_) = set.join_next() => {
-                if todo_count.load(Ordering::Relaxed) >= limit {
+            tokio::task::yield_now().await;
+        }
+
+        // //------------------------------------------------
+        // // Best effort cancellation
+        // //------------------------------------------------
+
+        for handle in &handles {
+            handle.abort();
+        }
+
+        // NOTE: We DO NOT await them properly (unstructured semantics)
+
+        let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
+
+        eprintln!("Structured tool called with a imit of = {} TODOs", limit);
+
+        RequestStats {
+            todo_count: repo_analyser.get_todo_count(),
+            file_count: repo_analyser.get_file_count(),
+            unfinished_tasks,
+            todo_tasks: repo_analyser.get_todo_tasks()
+        }
+    }
+
+    pub async fn structured_tool_process(&self, limit: usize) -> RequestStats {
+
+        let repo_analyser = Arc::new(RepoAnalyser::new());
+
+        let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/");
+
+        let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
+        let todo_count = Arc::new(AtomicUsize::new(0));
+
+        let deadline = Instant::now() + Self::REQUEST_DEADLINE;
+
+        let mut set = JoinSet::new();
+
+        //------------------------------------------------
+        // Structured spawn
+        //------------------------------------------------
+
+        for path in file_paths {
+
+            let repo = repo_analyser.clone();
+            let active = active_tasks.clone();
+            let todos = todo_count.clone();
+
+            set.spawn(async move {
+
+                if todos.load(Ordering::Relaxed) >= limit {
+                    active.fetch_sub(1, Ordering::Relaxed);
+                    return;
+                }
+
+                repo.analyze_file(path, limit, todos.clone()).await;
+
+                active.fetch_sub(1, Ordering::Relaxed);
+            });
+        }
+
+        //------------------------------------------------
+        // Structured join loop
+        //------------------------------------------------
+
+        let mut deadline_sleep = Box::pin(sleep_until(deadline));
+
+        loop {
+            tokio::select! {
+
+                _ = &mut deadline_sleep => {
                     set.abort_all();
                     break;
                 }
 
-                if set.is_empty() {
-                    break;
+                Some(_) = set.join_next() => {
+                    if todo_count.load(Ordering::Relaxed) >= limit {
+                        set.abort_all();
+                        break;
+                    }
+
+                    if set.is_empty() {
+                        break;
+                    }
                 }
+
+                else => break
             }
-
-            else => break
         }
-    }
 
-    //------------------------------------------------
-    // Structured cleanup guarantee
-    //------------------------------------------------
+        //------------------------------------------------
+        // Structured cleanup guarantee
+        //------------------------------------------------
 
-    while set.join_next().await.is_some() {}
+        while set.join_next().await.is_some() {}
 
-    let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
+        let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
 
-    eprintln!("Structured tool called with a imit of = {} TODOs", limit);
+        eprintln!("Structured tool called with a imit of = {} TODOs", limit);
 
-    RequestStats {
-        todo_count: repo_analyser.get_todo_count(),
-        file_count: repo_analyser.get_file_count(),
-        unfinished_tasks,
-        todo_tasks: repo_analyser.get_todo_tasks()
+        RequestStats {
+            todo_count: repo_analyser.get_todo_count(),
+            file_count: repo_analyser.get_file_count(),
+            unfinished_tasks,
+            todo_tasks: repo_analyser.get_todo_tasks()
+        }
     }
 }

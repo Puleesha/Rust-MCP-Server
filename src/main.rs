@@ -6,7 +6,7 @@ mod repo_analyser;
 use anyhow::Result;
 use rmcp::{transport::stdio, ServiceExt};
 use request_handler::RequestHandler;
-// use tool_service::baseline_tool_process;
+use tool_service::ToolService;
 
 use metrics::{counter, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
@@ -14,11 +14,12 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use std::env;
 use std::time::{Instant, Duration};
 use std::thread;
+use std::sync::Arc;
+use std::convert::Infallible;
 
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::header::CONTENT_TYPE;
-use std::convert::Infallible;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -56,19 +57,21 @@ async fn main() -> Result<()> {
 
         let start_time = Instant::now();
         let mut start_index: usize = 0;
+        let service: Arc<ToolService> = Arc::new(ToolService::new());
 
         while start_time.elapsed() < Duration::from_millis(100_000) {
 
             let current_limit: usize = if start_index == limit {1} else {start_index + 1};
             start_index = current_limit;
+            let service = service.clone();
 
             handles.push(tokio::spawn(async move {
                 let start = Instant::now();
 
                 let result = if variant == "baseline" {
-                    tool_service::baseline_tool_process(current_limit).await
+                    service.baseline_tool_process(current_limit).await
                 } else {
-                    tool_service::structured_tool_process(current_limit).await
+                    service.structured_tool_process(current_limit).await
                 };
 
                 counter!("requests_total", 1, "variant" => variant);
