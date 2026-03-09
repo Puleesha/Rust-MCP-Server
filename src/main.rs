@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
                 let result = if variant == "baseline" {
                     service.baseline_tool_process(current_limit).await
                 } else {
-                    service.structured_tool_process(current_limit).await
+                    service.structured_tool_process(current_limit)
                 };
 
                 counter!("requests_total", 1, "variant" => variant);

@@ -55,7 +55,7 @@ impl RequestHandler {
     async fn rust_structured_analyzer(&self, params: Parameters<ToolSchema>) -> Result<CallToolResult, McpError> {
 
         let service: ToolService = ToolService::new();
-        let stats = service.structured_tool_process(params.0.limit).await;
+        let stats = service.structured_tool_process(params.0.limit);
 
         let msg = format!(
             "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
