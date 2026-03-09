@@ -7,6 +7,7 @@ use anyhow::Result;
 use rmcp::{transport::stdio, ServiceExt};
 use request_handler::RequestHandler;
 use tool_service::ToolService;
+use threadpool::ThreadPool;
 
 use metrics::{counter, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
@@ -16,6 +17,7 @@ use std::time::{Instant, Duration};
 use std::thread;
 use std::sync::Arc;
 use std::convert::Infallible;
+use std::thread::available_parallelism;
 
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
@@ -34,6 +36,7 @@ async fn main() -> Result<()> {
         _ => "unknown",
     };
     let port = if variant == "baseline" { 9102 } else { 9103 };
+    let requests = ThreadPool::new(available_parallelism().map(|n| n.get()).unwrap_or(8) * 4);
 
     // -----------------------------
     // Install Prometheus exporter ONCE
@@ -52,7 +55,6 @@ async fn main() -> Result<()> {
 
         let limit: usize = args[2].parse().unwrap();
 
-        let mut handles = Vec::new();
         eprintln!("Created benchmark with upto {} tasks", limit);
 
         let start_time = Instant::now();
@@ -65,14 +67,16 @@ async fn main() -> Result<()> {
             start_index = current_limit;
             let service = service.clone();
 
-            handles.push(tokio::spawn(async move {
+            requests.execute(move || {
                 let start = Instant::now();
 
-                let result = if variant == "baseline" {
-                    service.baseline_tool_process(current_limit).await
-                } else {
-                    service.structured_tool_process(current_limit)
-                };
+                // TODO: make baseline not async to make it run here
+                let result = 
+                // if variant == "baseline" {
+                //     service.baseline_tool_process(current_limit)
+                // } else {
+                    service.structured_tool_process(current_limit);
+                // };
 
                 counter!("requests_total", 1, "variant" => variant);
 
@@ -80,13 +84,9 @@ async fn main() -> Result<()> {
                 histogram!("todos_missed_per_request", (current_limit - result.todo_count) as f64, "variant" => variant);
                 histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
                 histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
-            }));
+            });
 
             thread::sleep(Duration::from_millis(100));
-        }
-
-        for h in handles {
-            h.await.unwrap();
         }
 
         // tokio::time::sleep(std::time::Duration::from_secs(30)).await;
