@@ -79,7 +79,7 @@ impl ToolService {
 
         let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
 
-        eprintln!("Structured tool called with a imit of = {} TODOs", limit);
+        eprintln!("Baseline tool called with a imit of = {} TODOs", limit);
 
         RequestStats {
             todo_count: repo_analyser.get_todo_count(),
