@@ -4,6 +4,8 @@ use std::sync::{Arc, atomic::{AtomicUsize, Ordering, AtomicBool}};
 use std::thread;
 use std::path::PathBuf;
 
+use rayon::scope;
+
 use threadpool::ThreadPool;
 
 use crate::repo_analyser::RepoAnalyser;
@@ -97,30 +99,32 @@ impl ToolService {
         let deadline = Instant::now() + Self::REQUEST_DEADLINE;
     
         //------------------------------------------------
-        // Structured thread scope
+        // Structured rayon scope
         //------------------------------------------------
     
-        thread::scope(|scope| {
+        scope(|task_scope| {
     
             //------------------------------------------------
-            // Deadline cancellation thread
+            // Deadline cancellation task
             //------------------------------------------------
     
             let cancel_flag = cancelled.clone();
     
-            scope.spawn(move || {
+            task_scope.spawn(move |_| {
                 while Instant::now() < deadline {
+    
                     if cancel_flag.load(Ordering::Relaxed) {
                         return;
                     }
-                    std::thread::sleep(Duration::from_millis(5));
+    
+                    thread::sleep(Duration::from_millis(5));
                 }
     
                 cancel_flag.store(true, Ordering::Relaxed);
             });
     
             //------------------------------------------------
-            // Spawn analysis threads
+            // Spawn analysis tasks
             //------------------------------------------------
     
             for path in file_paths {
@@ -130,7 +134,7 @@ impl ToolService {
                 let todos = todo_count.clone();
                 let cancelled = cancelled.clone();
     
-                scope.spawn(move || {
+                task_scope.spawn(move |_| {
     
                     //------------------------------------------------
                     // Early cancellation check

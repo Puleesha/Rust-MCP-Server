@@ -56,7 +56,7 @@ impl RepoAnalyser {
         take(&mut *guard)
     }
 
-    pub async fn analyze_file(&self, path: PathBuf, limit: usize, todos: Arc<AtomicUsize>) {
+    pub fn analyze_file(&self, path: PathBuf, limit: usize, todos: Arc<AtomicUsize>) {
         if let Ok(file) = File::open(&path) {
             self.file_count.fetch_add(1, Ordering::SeqCst);
 
@@ -69,7 +69,7 @@ impl RepoAnalyser {
                 }
 
                 if  line.contains("TODO") && 
-                    (self.get_response_length().await + line.len() < Self::RESPONSE_LENGTH_LIMIT) 
+                    (self.get_response_length() + line.len() < Self::RESPONSE_LENGTH_LIMIT) 
                 {
                     let mut guard = self.todo_tasks.lock().unwrap();
                     guard.push(String::from(line));
@@ -81,7 +81,7 @@ impl RepoAnalyser {
         }
     }
 
-    async fn get_response_length(&self) -> usize {
+    fn get_response_length(&self) -> usize {
         let guard = self.todo_tasks.lock().unwrap();
         let response_length: usize = guard.iter().map(|s| s.len()).sum();
 

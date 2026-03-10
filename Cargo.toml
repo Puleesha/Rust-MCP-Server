@@ -18,3 +18,4 @@ metrics-exporter-prometheus = "0.12"
 once_cell = "1"
 hyper = { version = "0.14", features = ["full"] }
 threadpool = "1.8.1"
+rayon = "1.11.0"
