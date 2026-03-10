@@ -69,7 +69,7 @@ impl ToolService {
                 break;
             }
 
-            // tokio::task::yield_now().await;
+            std::thread::sleep(Duration::from_millis(1));
         }
 
         // NOTE: We DO NOT await them properly (unstructured semantics)
