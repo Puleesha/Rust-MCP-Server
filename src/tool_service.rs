@@ -4,18 +4,26 @@ use std::sync::{Arc, atomic::{AtomicUsize, Ordering, AtomicBool}};
 use std::thread;
 use std::path::PathBuf;
 
+use threadpool::ThreadPool;
+
 use crate::repo_analyser::RepoAnalyser;
 use crate::request_stats::RequestStats;
 
-pub struct ToolService;
+pub struct ToolService {
+    tasks: ThreadPool
+}
 
 impl ToolService {
 
     const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
 
-    pub fn new() -> Self {Self {}}
+    pub fn new() -> Self {
+        Self {
+            tasks: ThreadPool::new(1000)
+        }
+    }
     
-    pub async fn baseline_tool_process(&self, limit: usize) -> RequestStats {
+    pub fn baseline_tool_process(&self, limit: usize) -> RequestStats {
 
         let repo_analyser = Arc::new(RepoAnalyser::new());
 
@@ -25,8 +33,6 @@ impl ToolService {
         let todo_count = Arc::new(AtomicUsize::new(0));
 
         let deadline: Instant = Instant::now() + Self::REQUEST_DEADLINE;
-
-        let mut handles = Vec::with_capacity(file_paths.len());
 
         //------------------------------------------------
         // Spawn tasks (unstructured)
@@ -38,19 +44,17 @@ impl ToolService {
             let active = active_tasks.clone();
             let todos = todo_count.clone();
 
-            let handle = tokio::spawn(async move {
+            self.tasks.execute(move || {
 
                 if todos.load(Ordering::Relaxed) >= limit {
                     active.fetch_sub(1, Ordering::Relaxed);
                     return;
                 }
 
-                repo.analyze_file(path, limit, todos.clone()).await;
+                repo.analyze_file(path, limit, todos.clone());
 
                 active.fetch_sub(1, Ordering::Relaxed);
             });
-
-            handles.push(handle);
         }
 
         //------------------------------------------------
@@ -63,15 +67,7 @@ impl ToolService {
                 break;
             }
 
-            tokio::task::yield_now().await;
-        }
-
-        // //------------------------------------------------
-        // // Best effort cancellation
-        // //------------------------------------------------
-
-        for handle in &handles {
-            handle.abort();
+            // tokio::task::yield_now().await;
         }
 
         // NOTE: We DO NOT await them properly (unstructured semantics)

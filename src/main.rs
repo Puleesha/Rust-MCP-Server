@@ -72,11 +72,11 @@ async fn main() -> Result<()> {
 
                 // TODO: make baseline not async to make it run here
                 let result = 
-                // if variant == "baseline" {
-                //     service.baseline_tool_process(current_limit)
-                // } else {
-                    service.structured_tool_process(current_limit);
-                // };
+                if variant == "baseline" {
+                    service.baseline_tool_process(current_limit)
+                } else {
+                    service.structured_tool_process(current_limit)
+                };
 
                 counter!("requests_total", 1, "variant" => variant);
 
