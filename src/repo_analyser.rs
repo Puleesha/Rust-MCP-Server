@@ -1,30 +1,42 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+use std::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Mutex,
+};
+use std::time::{Duration, Instant};
 use walkdir::WalkDir;
-use std::sync::Mutex;
-use std::mem::take;
 
 pub struct RepoAnalyser {
-    file_count: Arc<AtomicUsize>,
-    todo_count: Arc<AtomicUsize>,
-    todo_tasks: Arc<Mutex<Vec<String>>>
+    file_count: AtomicUsize,
+    todo_count: AtomicUsize,
+
+    todo_tasks: Mutex<Vec<String>>,
+
+    limit_reached: AtomicBool,
+
+    deadline: Instant,
+    task_limit: usize,
 }
 
 impl RepoAnalyser {
+    const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
     const RESPONSE_LENGTH_LIMIT: usize = 500;
 
-    pub fn new() -> Self {
+    pub fn new(limit: usize) -> Self {
         Self {
-            file_count: Arc::new(AtomicUsize::new(0)),
-            todo_count: Arc::new(AtomicUsize::new(0)),
-            todo_tasks: Arc::new(Mutex::new(Vec::new()))
+            file_count: AtomicUsize::new(0),
+            todo_count: AtomicUsize::new(0),
+            todo_tasks: Mutex::new(Vec::new()),
+            limit_reached: AtomicBool::new(false),
+            deadline: Instant::now() + Self::REQUEST_DEADLINE,
+            task_limit: limit,
         }
     }
 
-    pub fn analyze_repository(path: &str) -> Vec<PathBuf> {
-        let root = Path::new(path);
+    pub fn analyze_repository(folder_path: &str) -> Vec<PathBuf> {
+        let root = Path::new(folder_path);
         Self::discover_files(root)
     }
 
@@ -39,8 +51,52 @@ impl RepoAnalyser {
             }
         }
 
-        result.sort(); // like Java's .sorted() to return the same set of files for every function call
+        // same as Java .sorted() to return the same set of files for each request 
+        result.sort();
         result
+    }
+
+    pub fn analyze_file(&self, path: PathBuf) {
+        if let Ok(file) = File::open(&path) {
+            self.file_count.fetch_add(1, Ordering::SeqCst);
+
+            let reader = BufReader::new(file);
+
+            for line in reader.lines().flatten() {
+                if self.limit_reached.load(Ordering::SeqCst) {
+                    break;
+                }
+
+                // Check limits exactly like Java logic
+                if self.todo_count.load(Ordering::SeqCst) >= self.task_limit
+                    || (self.get_response_length() + line.len()
+                        >= Self::RESPONSE_LENGTH_LIMIT)
+                    || Instant::now() >= self.deadline
+                {
+                    self.limit_reached.store(true, Ordering::SeqCst);
+                    break;
+                }
+
+                if line.contains("TODO") {
+                    self.add_todo(line);
+                }
+            }
+        }
+    }
+
+    fn add_todo(&self, line: String) {
+        let mut guard = self.todo_tasks.lock().unwrap();
+
+        self.todo_count.fetch_add(1, Ordering::SeqCst);
+
+        // mimic Java: line.replace("//", " ")
+        let cleaned = line.replace("//", " ");
+        guard.push(cleaned);
+    }
+
+    fn get_response_length(&self) -> usize {
+        let guard = self.todo_tasks.lock().unwrap();
+        guard.iter().map(|s| s.len()).sum()
     }
 
     pub fn get_file_count(&self) -> usize {
@@ -51,40 +107,11 @@ impl RepoAnalyser {
         self.todo_count.load(Ordering::SeqCst)
     }
 
-    pub fn get_todo_tasks(&self) -> Vec<String> {
-        let mut guard = self.todo_tasks.lock().unwrap();
-        take(&mut *guard)
+    pub fn get_todos(&self) -> Vec<String> {
+        self.todo_tasks.lock().unwrap().clone()
     }
 
-    pub fn analyze_file(&self, path: PathBuf, limit: usize, todos: Arc<AtomicUsize>) {
-        if let Ok(file) = File::open(&path) {
-            self.file_count.fetch_add(1, Ordering::SeqCst);
-
-            let reader = BufReader::new(file);
-
-            for line in reader.lines().flatten() {
-                // Stop if limit reached
-                if self.todo_count.load(Ordering::SeqCst) >= limit {
-                    break;
-                }
-
-                if  line.contains("TODO") && 
-                    (self.get_response_length() + line.len() < Self::RESPONSE_LENGTH_LIMIT) 
-                {
-                    let mut guard = self.todo_tasks.lock().unwrap();
-                    guard.push(String::from(line));
-
-                    self.todo_count.fetch_add(1, Ordering::SeqCst);
-                    todos.fetch_add(1, Ordering::SeqCst);
-                }
-            }
-        }
-    }
-
-    fn get_response_length(&self) -> usize {
-        let guard = self.todo_tasks.lock().unwrap();
-        let response_length: usize = guard.iter().map(|s| s.len()).sum();
-
-        response_length
+    pub fn is_limit_reached(&self) -> bool {
+        self.limit_reached.load(Ordering::SeqCst)
     }
 }
