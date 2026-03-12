@@ -26,11 +26,8 @@ impl ToolService {
     pub fn baseline_tool_process(&self, limit: usize) -> RequestStats {
 
         let repo_analyser = Arc::new(RepoAnalyser::new(limit));
-
         let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository");
-
         let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
-        let todo_count = Arc::new(AtomicUsize::new(0));
 
         //------------------------------------------------
         // Spawn tasks (unstructured)
@@ -40,11 +37,10 @@ impl ToolService {
 
             let repo = repo_analyser.clone();
             let active = active_tasks.clone();
-            let todos = todo_count.clone();
 
             self.tasks.execute(move || {
 
-                if todos.load(Ordering::Relaxed) >= limit {
+                if repo.is_limit_reached() {
                     active.fetch_sub(1, Ordering::Relaxed);
                     return;
                 }
@@ -60,11 +56,6 @@ impl ToolService {
         //------------------------------------------------
 
         while !repo_analyser.is_limit_reached() {
-
-            if todo_count.load(Ordering::Relaxed) >= limit {
-                break;
-            }
-
             std::thread::sleep(Duration::from_millis(1));
         }
 
@@ -89,7 +80,6 @@ impl ToolService {
         let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/");
     
         let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
-        let todo_count = Arc::new(AtomicUsize::new(0));
         let cancelled = Arc::new(AtomicBool::new(false));
         
         //------------------------------------------------
@@ -126,7 +116,6 @@ impl ToolService {
     
                 let repo = repo_analyser.clone();
                 let active = active_tasks.clone();
-                let todos = todo_count.clone();
                 let cancelled = cancelled.clone();
     
                 task_scope.spawn(move |_| {
@@ -150,7 +139,7 @@ impl ToolService {
                     // Check limit condition
                     //------------------------------------------------
     
-                    if todos.load(Ordering::Relaxed) >= limit {
+                    if repo.is_limit_reached() {
                         cancelled.store(true, Ordering::Relaxed);
                     }
     

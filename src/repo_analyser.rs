@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicUsize, Ordering},
     Mutex,
 };
 use std::time::{Duration, Instant};
@@ -11,11 +11,7 @@ use walkdir::WalkDir;
 pub struct RepoAnalyser {
     file_count: AtomicUsize,
     todo_count: AtomicUsize,
-
     todo_tasks: Mutex<Vec<String>>,
-
-    limit_reached: AtomicBool,
-
     deadline: Instant,
     task_limit: usize,
 }
@@ -29,7 +25,6 @@ impl RepoAnalyser {
             file_count: AtomicUsize::new(0),
             todo_count: AtomicUsize::new(0),
             todo_tasks: Mutex::new(Vec::new()),
-            limit_reached: AtomicBool::new(false),
             deadline: Instant::now() + Self::REQUEST_DEADLINE,
             task_limit: limit,
         }
@@ -63,20 +58,6 @@ impl RepoAnalyser {
             let reader = BufReader::new(file);
 
             for line in reader.lines().flatten() {
-                if self.limit_reached.load(Ordering::SeqCst) {
-                    break;
-                }
-
-                // Check limits exactly like Java logic
-                if self.todo_count.load(Ordering::SeqCst) >= self.task_limit
-                    || (self.get_response_length() + line.len()
-                        >= Self::RESPONSE_LENGTH_LIMIT)
-                    || Instant::now() >= self.deadline
-                {
-                    self.limit_reached.store(true, Ordering::SeqCst);
-                    break;
-                }
-
                 if line.contains("TODO") {
                     self.add_todo(line);
                 }
@@ -112,6 +93,8 @@ impl RepoAnalyser {
     }
 
     pub fn is_limit_reached(&self) -> bool {
-        self.limit_reached.load(Ordering::SeqCst)
+        self.todo_count.load(Ordering::SeqCst) >= self.task_limit || 
+        (self.get_response_length() >= Self::RESPONSE_LENGTH_LIMIT) || 
+        Instant::now() >= self.deadline
     }
 }
