@@ -2,6 +2,7 @@ use tokio::time::Duration;
 
 use std::sync::{Arc, atomic::{AtomicUsize, Ordering, AtomicBool}};
 use std::thread;
+use std::thread::available_parallelism;
 use std::path::PathBuf;
 
 use rayon::scope;
@@ -19,7 +20,7 @@ impl ToolService {
 
     pub fn new() -> Self {
         Self {
-            tasks: ThreadPool::new(1000)
+            tasks: ThreadPool::new(available_parallelism().map(|n| n.get()).unwrap_or(8))
         }
     }
     

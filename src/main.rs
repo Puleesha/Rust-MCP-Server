@@ -7,7 +7,6 @@ use anyhow::Result;
 use rmcp::{transport::stdio, ServiceExt};
 use request_handler::RequestHandler;
 use tool_service::ToolService;
-use threadpool::ThreadPool;
 
 use metrics::{counter, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
@@ -17,7 +16,6 @@ use std::time::{Instant, Duration};
 use std::thread;
 use std::sync::Arc;
 use std::convert::Infallible;
-use std::thread::available_parallelism;
 
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
@@ -36,7 +34,6 @@ async fn main() -> Result<()> {
         _ => "unknown",
     };
     let port = if variant == "baseline" { 9102 } else { 9103 };
-    let requests = ThreadPool::new(available_parallelism().map(|n| n.get()).unwrap_or(8) * 4);
 
     // -----------------------------
     // Install Prometheus exporter ONCE
@@ -67,28 +64,23 @@ async fn main() -> Result<()> {
             start_index = current_limit;
             let service = service.clone();
 
-            requests.execute(move || {
-                let start = Instant::now();
+            let start = Instant::now();
 
-                // TODO: make baseline not async to make it run here
-                let result = 
-                if variant == "baseline" {
-                    service.baseline_tool_process(current_limit)
-                } else {
-                    service.structured_tool_process(current_limit)
-                };
+            let result = 
+            if variant == "baseline" {
+                service.baseline_tool_process(current_limit)
+            } else {
+                service.structured_tool_process(current_limit)
+            };
 
-                counter!("requests_total", 1, "variant" => variant);
+            counter!("requests_total", 1, "variant" => variant);
 
-                histogram!("todos_completed_per_request", result.todo_count as f64, "variant" => variant);
-                histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
-                histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
-            });
+            histogram!("todos_completed_per_request", result.todo_count as f64, "variant" => variant);
+            histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
+            histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
 
             thread::sleep(Duration::from_millis(100));
         }
-
-        // tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
         return Ok(());
     }
@@ -96,19 +88,6 @@ async fn main() -> Result<()> {
     // -----------------------------
     // NORMAL MCP SERVER MODE
     // -----------------------------
-    // let test = RequestHandler::new();
-
-    // for i in 1..10 {
-    //     println!("start");
-    //     let stats = baseline_tool_process(10).await;
-
-    //     let msg = format!(
-    //         "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
-    //         stats.todo_count, stats.file_count, stats.unfinished_tasks
-    //     );
-
-    //     dbg!(msg);
-    // }
 
     // For logging purposes
     tracing_subscriber::fmt()
