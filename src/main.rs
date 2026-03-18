@@ -72,9 +72,9 @@ async fn main() -> Result<()> {
             } else {
                 service.structured_tool_process(current_limit)
             };
+            eprintln!("Active tasks: {}", result.unfinished_tasks);
 
             counter!("requests_total", 1, "variant" => variant);
-
             histogram!("todos_completed_per_request", result.todo_count as f64, "variant" => variant);
             histogram!("leaked_threads", result.unfinished_tasks as f64, "variant" => variant);
             histogram!("request_duration_seconds", start.elapsed().as_secs_f64(), "variant" => variant);
