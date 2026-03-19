@@ -20,7 +20,7 @@ impl ToolService {
 
     pub fn new() -> Self {
         Self {
-            tasks: ThreadPool::new(available_parallelism().map(|n| n.get()).unwrap_or(8))
+            tasks: ThreadPool::new(8)
         }
     }
     
