@@ -12,6 +12,7 @@ pub struct RepoAnalyser {
     file_count: AtomicUsize,
     todo_count: AtomicUsize,
     todo_tasks: Mutex<Vec<String>>,
+    mutex: Mutex<u8>,
     deadline: Instant,
     task_limit: usize,
 }
@@ -25,6 +26,7 @@ impl RepoAnalyser {
             file_count: AtomicUsize::new(0),
             todo_count: AtomicUsize::new(0),
             todo_tasks: Mutex::new(Vec::new()),
+            mutex: Mutex::new(1),
             deadline: Instant::now() + Self::REQUEST_DEADLINE,
             task_limit: limit,
         }
@@ -93,6 +95,8 @@ impl RepoAnalyser {
     }
 
     pub fn is_limit_reached(&self) -> bool {
+        let _lock = self.mutex.lock().unwrap();
+
         self.todo_count.load(Ordering::SeqCst) >= self.task_limit || 
         (self.get_response_length() >= Self::RESPONSE_LENGTH_LIMIT) || 
         Instant::now() >= self.deadline
