@@ -19,7 +19,7 @@ pub struct RepoAnalyser {
 
 impl RepoAnalyser {
     const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
-    const RESPONSE_LENGTH_LIMIT: usize = 500;
+    const RESPONSE_LENGTH_LIMIT: usize = 2000;
 
     pub fn new(limit: usize) -> Self {
         Self {
