@@ -25,7 +25,7 @@ impl ToolService {
     pub fn baseline_tool_process(&self, limit: usize) -> RequestStats {
 
         let repo_analyser = Arc::new(RepoAnalyser::new(limit));
-        let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository");
+        let file_paths: Vec<PathBuf> = repo_analyser.analyze_repository("app/MockRepository");
         let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
 
         //------------------------------------------------
@@ -76,7 +76,7 @@ impl ToolService {
 
         let repo_analyser = Arc::new(RepoAnalyser::new(limit));
     
-        let file_paths: Vec<PathBuf> = RepoAnalyser::analyze_repository("app/MockRepository/");
+        let file_paths: Vec<PathBuf> = repo_analyser.analyze_repository("app/MockRepository/");
     
         let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
         
