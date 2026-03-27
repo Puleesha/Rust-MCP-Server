@@ -29,7 +29,7 @@ impl ToolService {
         let active_tasks = Arc::new(AtomicUsize::new(file_paths.len()));
 
         //------------------------------------------------
-        // Spawn tasks (unstructured)
+        // Create tasks (unstructured)
         //------------------------------------------------
 
         for path in file_paths {
@@ -51,15 +51,14 @@ impl ToolService {
         }
 
         //------------------------------------------------
-        // Wait until quota or deadline
+        // Wait until limit is reached
         //------------------------------------------------
 
         while !repo_analyser.is_limit_reached() {
             std::thread::sleep(Duration::from_millis(1));
         }
 
-        // NOTE: Tasks are not awaited to completion (unstructured semantics)
-
+        // Tasks are not awaited to completion (unstructured semantics)
         let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
 
         eprintln!("Baseline tool called with a imit of = {} TODOs", limit);
@@ -95,26 +94,15 @@ impl ToolService {
                 let repo = repo_analyser.clone();
                 let active = active_tasks.clone();
     
+                // Same task process created in both server variants
                 task_scope.spawn(move |_| {
-    
-                    //------------------------------------------------
-                    // Early cancellation check
-                    //------------------------------------------------
     
                     if repo.is_limit_reached() {
                         active.fetch_sub(1, Ordering::Relaxed);
                         return;
                     }
     
-                    //------------------------------------------------
-                    // Perform file analysis
-                    //------------------------------------------------
-    
                     repo.analyze_file(path);
-    
-                    //------------------------------------------------
-                    // Mark task completion
-                    //------------------------------------------------
     
                     active.fetch_sub(1, Ordering::Relaxed);
                 });

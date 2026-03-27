@@ -23,26 +23,26 @@ async fn main() -> Result<()> {
     // Parse args
     // -----------------------------
     let args: Vec<String> = env::args().collect();
-    let variant: &'static str = match args.get(4).map(|s| s.as_str()) {
-        Some("baseline") => "baseline",
-        Some("structured") => "structured",
-        _ => "unknown",
+    let variant: &'static str = match args.get(4) {
+        Some(v) => v.as_str(),
+        _ => "unknown"
     };
     let port = if variant == "baseline" { 9102 } else { 9103 };
 
     // -----------------------------
-    // Install Prometheus exporter ONCE
+    // Initialise Prometheus metrics server
     // -----------------------------
     PrometheusBuilder::new()
         .with_http_listener(([0, 0, 0, 0], port))
         .install()
-        .expect("failed to install recorder");
+        .expect("failed to initialise Prometheus");
 
     eprintln!("Listening on port {}", port);    // Print all logs into stderr
 
     // -----------------------------
     // BENCHMARK MODE
     // -----------------------------
+    // This line detects if a benchmark has been requested
     if args.get(1) == Some(&"--bench".to_string()) {
 
         let limit: usize = args[2].parse().unwrap();
@@ -51,22 +51,23 @@ async fn main() -> Result<()> {
 
         let start_time = Instant::now();
         let mut start_index: usize = 0;
-        let service: Arc<ToolService> = Arc::new(ToolService::new());
+        let tool_service: Arc<ToolService> = Arc::new(ToolService::new());
 
         while start_time.elapsed() < Duration::from_millis(100_000) {
 
             let current_limit: usize = if start_index == limit {1} else {start_index + 1};
             start_index = current_limit;
-            let service = service.clone();
+            let service = tool_service.clone();
 
             let start = Instant::now();
 
-            let result = 
-            if variant == "baseline" {
-                service.baseline_tool_process(current_limit)
-            } else {
-                service.structured_tool_process(current_limit)
-            };
+            let result = {
+                if variant == "baseline" {
+                    service.baseline_tool_process(current_limit)
+                } else {
+                    service.structured_tool_process(current_limit)
+                };
+            }
             eprintln!("Active tasks: {}", result.unfinished_tasks);
 
             counter!("requests_total", 1, "variant" => variant);
@@ -84,14 +85,14 @@ async fn main() -> Result<()> {
     // NORMAL MCP SERVER MODE
     // -----------------------------
 
-    // For logging purposes
+    // Log all messages to stderr to prevent result contamination 
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .init();
 
-    let service = RequestHandler::new().serve(stdio()).await?;
-    service.waiting().await?;
+    let request_handler = RequestHandler::new().serve(stdio()).await?;
+    request_handler.waiting().await?;
 
     // Similar to void return type in Java
     Ok(())

@@ -14,7 +14,7 @@ pub struct RepoAnalyser {
     todo_tasks: Mutex<Vec<String>>,
     deadline: Instant,
     task_limit: usize,
-    connections_permits: Mutex<usize>,
+    connection_permits: Mutex<usize>,
     connections_condvar: Condvar,
 }
 
@@ -30,23 +30,23 @@ impl RepoAnalyser {
             todo_tasks: Mutex::new(Vec::new()),
             deadline: Instant::now() + Self::REQUEST_DEADLINE,
             task_limit: limit,
-            connections_permits: Mutex::new(Self::MAX_CONNECTIONS),
+            connection_permits: Mutex::new(Self::MAX_CONNECTIONS),
             connections_condvar: Condvar::new(),
         }
     }
 
-    /// Acquire one permit — blocks if none are available (mirrors semaphore.acquire())
+    // Acquire one permit — blocks if none are available (mirrors semaphore.acquire())
     fn acquire_connection(&self) {
-        let mut permits = self.connections_permits.lock().unwrap();
+        let mut permits = self.connection_permits.lock().unwrap();
         while *permits == 0 {
             permits = self.connections_condvar.wait(permits).unwrap();
         }
         *permits -= 1;
     }
 
-    /// Release one permit — wakes a waiting thread (mirrors semaphore.release())
+    // Release one permit — wakes a waiting thread (mirrors semaphore.release())
     fn release_connection(&self) {
-        let mut permits = self.connections_permits.lock().unwrap();
+        let mut permits = self.connection_permits.lock().unwrap();
         *permits += 1;
         self.connections_condvar.notify_one();
     }
@@ -90,7 +90,7 @@ impl RepoAnalyser {
             }
         }
 
-        self.release_connection(); // mirrors finally { connections.release() }
+        self.release_connection(); // mirrors connections.release()
     }
 
     fn add_todo(&self, line: String) {
@@ -98,7 +98,7 @@ impl RepoAnalyser {
 
         self.todo_count.fetch_add(1, Ordering::SeqCst);
 
-        // mimic Java: line.replace("//", " ")
+        // mimic Java: line.replace("//", " ") for clean results
         let cleaned = line.replace("//", " ");
         guard.push(cleaned);
     }
