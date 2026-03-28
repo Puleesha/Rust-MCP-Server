@@ -96,16 +96,16 @@ impl RepoAnalyser {
     fn add_todo(&self, line: String) {
         let mut guard = self.todo_tasks.lock().unwrap();
 
-        self.todo_count.fetch_add(1, Ordering::SeqCst);
-
         // mimic Java: line.replace("//", " ") for clean results
-        let cleaned = line.replace("//", " ");
-        guard.push(cleaned);
-    }
+        let new_task = line.replace("//", " ");
+        let currnet_response_length: usize = guard.iter().map(|s| s.len()).sum();
 
-    fn get_response_length(&self) -> usize {
-        let guard = self.todo_tasks.lock().unwrap();
-        guard.iter().map(|s| s.len()).sum()
+        if !(self.todo_count.load(Ordering::SeqCst) >= self.task_limit ||
+               (currnet_response_length + new_task.len()) > Self::RESPONSE_LENGTH_LIMIT ||
+                Instant::now() >= self.deadline) {
+            guard.push(new_task);
+            self.todo_count.fetch_add(1, Ordering::SeqCst);
+        }    
     }
 
     pub fn get_file_count(&self) -> usize {
@@ -121,8 +121,6 @@ impl RepoAnalyser {
     }
 
     pub fn is_limit_reached(&self) -> bool {
-        self.todo_count.load(Ordering::SeqCst) >= self.task_limit
-            || self.get_response_length() >= Self::RESPONSE_LENGTH_LIMIT
-            || Instant::now() >= self.deadline
+        self.todo_count.load(Ordering::SeqCst) >= self.task_limit || Instant::now() >= self.deadline
     }
 }
