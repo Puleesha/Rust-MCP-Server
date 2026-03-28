@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
     // Parse args
     // -----------------------------
     let args: Vec<String> = env::args().collect();
-    // Used string lig
+    // Used hardcoded strings to prevent erros from args lifetime
     let variant: &str = match args.get(4).map(|s| s.as_str()) {
         Some("baseline") => "baseline",
         Some("structured") => "structured",
