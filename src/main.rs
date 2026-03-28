@@ -23,8 +23,10 @@ async fn main() -> Result<()> {
     // Parse args
     // -----------------------------
     let args: Vec<String> = env::args().collect();
-    let variant: &'static str = match args.get(4) {
-        Some(v) => v.as_str(),
+    // Used string lig
+    let variant: &str = match args.get(4).map(|s| s.as_str()) {
+        Some("baseline") => "baseline",
+        Some("structured") => "structured",
         _ => "unknown"
     };
     let port = if variant == "baseline" { 9102 } else { 9103 };
@@ -61,13 +63,12 @@ async fn main() -> Result<()> {
 
             let start = Instant::now();
 
-            let result = {
+            let result = 
                 if variant == "baseline" {
                     service.baseline_tool_process(current_limit)
                 } else {
                     service.structured_tool_process(current_limit)
                 };
-            }
             eprintln!("Active tasks: {}", result.unfinished_tasks);
 
             counter!("requests_total", 1, "variant" => variant);
