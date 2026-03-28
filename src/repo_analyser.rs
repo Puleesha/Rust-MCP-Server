@@ -79,7 +79,7 @@ impl RepoAnalyser {
         self.acquire_connection();
 
         if let Ok(file) = File::open(&path) {
-            self.file_count.fetch_add(1, Ordering::SeqCst);
+            self.file_count.fetch_add(1, Ordering::Relaxed);
 
             let reader = BufReader::new(file);
 
@@ -100,20 +100,20 @@ impl RepoAnalyser {
         let new_task = line.replace("//", " ");
         let currnet_response_length: usize = guard.iter().map(|s| s.len()).sum();
 
-        if !(self.todo_count.load(Ordering::SeqCst) >= self.task_limit ||
+        if !(self.todo_count.load(Ordering::Relaxed) >= self.task_limit ||
                (currnet_response_length + new_task.len()) > Self::RESPONSE_LENGTH_LIMIT ||
                 Instant::now() >= self.deadline) {
             guard.push(new_task);
-            self.todo_count.fetch_add(1, Ordering::SeqCst);
+            self.todo_count.fetch_add(1, Ordering::Relaxed);
         }    
     }
 
     pub fn get_file_count(&self) -> usize {
-        self.file_count.load(Ordering::SeqCst)
+        self.file_count.load(Ordering::Relaxed)
     }
 
     pub fn get_todo_count(&self) -> usize {
-        self.todo_count.load(Ordering::SeqCst)
+        self.todo_count.load(Ordering::Relaxed)
     }
 
     pub fn get_todos(&self) -> Vec<String> {
@@ -121,6 +121,6 @@ impl RepoAnalyser {
     }
 
     pub fn is_limit_reached(&self) -> bool {
-        self.todo_count.load(Ordering::SeqCst) >= self.task_limit || Instant::now() >= self.deadline
+        self.todo_count.load(Ordering::Relaxed) >= self.task_limit || Instant::now() >= self.deadline
     }
 }
