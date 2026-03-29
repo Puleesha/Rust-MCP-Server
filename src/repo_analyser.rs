@@ -35,7 +35,7 @@ impl RepoAnalyser {
         }
     }
 
-    // Acquire one permit — blocks if none are available (mirrors semaphore.acquire())
+    // Acquire one permit, blocks if none are available (mirrors semaphore.acquire())
     fn acquire_connection(&self) {
         let mut permits = self.connection_permits.lock().unwrap();
         while *permits == 0 {
@@ -44,7 +44,7 @@ impl RepoAnalyser {
         *permits -= 1;
     }
 
-    // Release one permit — wakes a waiting thread (mirrors semaphore.release())
+    // Release one permit, wakes a waiting thread (mirrors semaphore.release())
     fn release_connection(&self) {
         let mut permits = self.connection_permits.lock().unwrap();
         *permits += 1;

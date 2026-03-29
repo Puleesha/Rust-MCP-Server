@@ -20,7 +20,7 @@ use std::sync::Arc;
 async fn main() -> Result<()> {
 
     // -----------------------------
-    // Parse args
+    // Parse any arguments
     // -----------------------------
     let args: Vec<String> = env::args().collect();
     // Used hardcoded strings to prevent erros from args lifetime
@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let port = if variant == "baseline" { 9102 } else { 9103 };
 
     // -----------------------------
-    // Initialise Prometheus metrics server
+    // Initialise the Prometheus metrics server
     // -----------------------------
     PrometheusBuilder::new()
         .with_http_listener(([0, 0, 0, 0], port))

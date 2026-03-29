@@ -51,14 +51,14 @@ impl ToolService {
         }
 
         //------------------------------------------------
-        // Wait until limit is reached
+        // Wait until any limit is reached
         //------------------------------------------------
 
         while !repo_analyser.is_limit_reached() {
             std::thread::sleep(Duration::from_millis(1));
         }
 
-        // Tasks are not awaited to completion (unstructured semantics)
+        // Tasks are not awaited to completion (unstructured concurrency)
         let unfinished_tasks = active_tasks.load(Ordering::Relaxed);
 
         eprintln!("Baseline tool called with a imit of = {} TODOs", limit);
@@ -86,7 +86,7 @@ impl ToolService {
         scope(|task_scope| {
     
             //------------------------------------------------
-            // Spawn analysis tasks
+            // Create tasks in the scope
             //------------------------------------------------
     
             for path in file_paths {
