@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
         .install()
         .expect("failed to initialise Prometheus");
 
-    eprintln!("Listening on port {}", port);    // Print all logs into stderr
+    eprintln!("Listening on port {}", port);    // eprintln! prints all logs into stderr
 
     // -----------------------------
     // BENCHMARK MODE

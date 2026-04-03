@@ -5,6 +5,8 @@ use rmcp::{
     ErrorData as McpError,
     ServerHandler
 };
+use metrics::{counter, histogram};
+use std::time::Instant;
 use rmcp::schemars::JsonSchema;
 use serde::Deserialize;
 use std::result::Result;
@@ -23,7 +25,6 @@ pub struct ToolSchema {
 // MCP server and tool definitions
 // ----------------------------------------------------------
 
-#[derive(Clone)]
 pub struct RequestHandler {
     tool_router: ToolRouter<Self>
 }
@@ -40,8 +41,14 @@ impl RequestHandler {
     #[tool(name = "rust_baseline_analyzer", description = "Analyze repo using unstructured concurrency")]
     async fn rust_baseline_analyzer(&self, params: Parameters<ToolSchema>) -> Result<CallToolResult, McpError> {
 
+        let start_time = Instant::now();
         let service: ToolService = ToolService::new();
         let stats = service.baseline_tool_process(params.0.limit);
+
+        counter!("requests_total", 1, "variant" => "baseline");
+        histogram!("todos_completed_per_request", stats.todo_count as f64, "variant" => "baseline");
+        histogram!("leaked_threads", stats.unfinished_tasks as f64, "variant" => "baseline");
+        histogram!("request_duration_seconds", start_time.elapsed().as_secs_f64(), "variant" => "baseline");
 
         let msg = format!(
             "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
@@ -54,8 +61,14 @@ impl RequestHandler {
     #[tool(name = "rust_structured_analyzer", description = "Analyze repo using structured concurrency")]
     async fn rust_structured_analyzer(&self, params: Parameters<ToolSchema>) -> Result<CallToolResult, McpError> {
 
+        let start_time = Instant::now();
         let service: ToolService = ToolService::new();
         let stats = service.structured_tool_process(params.0.limit);
+
+        counter!("requests_total", 1, "variant" => "structured");
+        histogram!("todos_completed_per_request", stats.todo_count as f64, "variant" => "structured");
+        histogram!("leaked_threads", stats.unfinished_tasks as f64, "variant" => "structured");
+        histogram!("request_duration_seconds", start_time.elapsed().as_secs_f64(), "variant" => "structured");
 
         let msg = format!(
             "TODOs found = {}. Scanned {} files. Unfinished tasks = {}",
