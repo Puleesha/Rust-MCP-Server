@@ -19,3 +19,4 @@ once_cell = "1"
 hyper = { version = "0.14", features = ["full"] }
 threadpool = "1.8.1"
 rayon = "1.11.0"
+axum = "0.7"

@@ -16,6 +16,12 @@ use std::time::{Instant, Duration};
 use std::thread;
 use std::sync::Arc;
 
+use axum::{
+    routing::post,
+    Json, Router,
+};
+use serde::Deserialize;
+
 #[tokio::main]
 async fn main() -> Result<()> {
 
@@ -92,9 +98,56 @@ async fn main() -> Result<()> {
         .with_ansi(false)
         .init();
 
+    let app = Router::new().route("/mcp", post(start_http_server));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    axum::serve(listener, app).await?;
+
     let request_handler = RequestHandler::new().serve(stdio()).await?;
     request_handler.waiting().await?;
 
     // Similar to void return type in Java
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct McpRequest {
+    id: serde_json::Value,
+    params: Params,
+}
+
+#[derive(Deserialize)]
+struct Params {
+    name: String,
+    arguments: Arguments,
+}
+
+#[derive(Deserialize)]
+struct Arguments {
+    limit: usize,
+}
+
+async fn start_http_server(Json(req): Json<McpRequest>) -> Json<serde_json::Value> {
+
+    let start_time = Instant::now();
+    let service = ToolService::new();
+
+    let stats = if req.params.name == "rust_baseline_analyzer" {
+        service.baseline_tool_process(req.params.arguments.limit)
+    } else {
+        service.structured_tool_process(req.params.arguments.limit)
+    };
+
+    counter!("requests_total", 1, "variant" => req.params.name.clone());
+    histogram!("todos_completed_per_request", stats.todo_count as f64, "variant" => req.params.name.clone());
+    histogram!("leaked_threads", stats.unfinished_tasks as f64, "variant" => req.params.name.clone());
+    histogram!("request_duration_seconds", start_time.elapsed().as_secs_f64(), "variant" => req.params.name.clone());
+
+    Json(serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": req.id,
+        "result": {
+            "content": format!("TODOs found = {}", stats.todo_count)
+        }
+    }))
 }
