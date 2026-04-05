@@ -98,10 +98,10 @@ async fn main() -> Result<()> {
         .with_ansi(false)
         .init();
 
-    let app = Router::new().route("/mcp", post(start_http_server));
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
-    axum::serve(listener, app).await?;
+    // Uncomment when running the HTTP benchmark
+    // let app = Router::new().route("/mcp", post(start_http_server));
+    // let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    // axum::serve(listener, app).await?;
 
     let request_handler = RequestHandler::new().serve(stdio()).await?;
     request_handler.waiting().await?;
