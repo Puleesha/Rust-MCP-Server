@@ -132,16 +132,16 @@ async fn start_http_server(Json(req): Json<McpRequest>) -> Json<serde_json::Valu
     let start_time = Instant::now();
     let service = ToolService::new();
 
-    let stats = if req.params.name == "rust_baseline_analyzer" {
+    let stats = if req.params.variant == "baseline" {
         service.baseline_tool_process(req.params.arguments.limit)
     } else {
         service.structured_tool_process(req.params.arguments.limit)
     };
 
-    counter!("requests_total", 1, "variant" => req.params.name.clone());
-    histogram!("todos_completed_per_request", stats.todo_count as f64, "variant" => req.params.name.clone());
-    histogram!("leaked_threads", stats.unfinished_tasks as f64, "variant" => req.params.name.clone());
-    histogram!("request_duration_seconds", start_time.elapsed().as_secs_f64(), "variant" => req.params.name.clone());
+    counter!("requests_total", 1, "variant" => req.params.variant.clone());
+    histogram!("todos_completed_per_request", stats.todo_count as f64, "variant" => req.params.variant.clone());
+    histogram!("leaked_threads", stats.unfinished_tasks as f64, "variant" => req.params.variant.clone());
+    histogram!("request_duration_seconds", start_time.elapsed().as_secs_f64(), "variant" => req.params.variant.clone());
 
     Json(serde_json::json!({
         "jsonrpc": "2.0",
