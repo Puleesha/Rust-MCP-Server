@@ -118,7 +118,7 @@ struct McpRequest {
 
 #[derive(Deserialize)]
 struct Params {
-    name: String,
+    variant: String,
     arguments: Arguments,
 }
 
