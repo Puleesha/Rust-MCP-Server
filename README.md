@@ -105,3 +105,17 @@ open -a TextEdit "/Users/pradeep/Library/Application Support/Claude/claude_deskt
 7. Open Claude Desktop and view the connectors to see the new MCP servers.
 
 8. Ensure that Grafana is conencted to a Prometheus data source via http://host.docker.internal:9090
+
+9. To do the HTTP Benchmark, run
+'''bash
+docker run --rm -p 9103:9103 -p 8080:8080 rust-mcp-server --test 00 --mode structured
+''' 
+or
+'''bash
+docker run --rm -p 9102:9102 -p 8080:8080 rust-mcp-server --test 00 --mode baseline
+''' 
+in the terminal and then configure and run
+'''bash
+node HTTPBenchmark
+'''
+in the direcroty of the benchmark file.
